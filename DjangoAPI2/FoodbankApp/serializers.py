@@ -16,7 +16,8 @@ class DonorSerializer(serializers.ModelSerializer):
                   'DonorType',
                   'Notes',
                   'Phone',
-                  'InvolveNo')
+                  'InvolveNo',
+                  'Volunteer')
 
 class CollectionSerializer(serializers.ModelSerializer):
     class Meta:

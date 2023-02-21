@@ -20,6 +20,7 @@ class Donor(models.Model):
     Notes = models.CharField(max_length=1000, blank=True, null=True)
     Phone = models.CharField(max_length=500, blank=True, null=True)
     InvolveNo = models.PositiveSmallIntegerField(default=0)
+    Volunteer = models.BooleanField(default=False)
 
 
 class Collection(models.Model):

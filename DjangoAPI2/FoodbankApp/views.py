@@ -449,7 +449,9 @@ class ParticipantListApi(generics.ListAPIView):
         if page == "coll":
             parLength = len(Participation.objects.filter(CollectionID=collId))
             payload = {
-                "parLength": parLength,
+                "page": {
+                    "parTotalLength": parLength,
+                }
             }
             
             return JsonResponse(payload, safe=False)

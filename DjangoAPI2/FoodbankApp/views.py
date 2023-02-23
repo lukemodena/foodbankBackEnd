@@ -454,37 +454,39 @@ class ParticipantListApi(generics.ListAPIView):
             return JsonResponse(payload, safe=False)
 
         if collId is not None:
-            parLength = len(Participation.objects.filter(CollectionID=collId))
             if type is not None:
                 if type == "1":
                     allParticipants = Participation.objects.filter(CollectionID=collId, DonationType=type).order_by('PaymentRecieved', 'DropOffTime')
-
+                    parLength = len(allParticipants)
                 elif type == "2":
                     allParticipants = Participation.objects.filter(CollectionID=collId, DonationType=type)
-
+                    parLength = len(allParticipants)
                 elif type == "4":
                     allParticipants = Participation.objects.filter(CollectionID=collId, DonationType=type).order_by('PaymentRecieved', 'DropOffTime')
-
+                    parLength = len(allParticipants)
                 else:
                     allParticipants = Participation.objects.filter(CollectionID=collId, DonationType=type)
+                    parLength = len(allParticipants)
             else:
                 allParticipants = Participation.objects.filter(CollectionID=collId)
+                parLength = len(allParticipants)
         else:
-            parLength = len(Participation.objects.all())
             if type is not None:
                 if type == "1":
                     allParticipants = Participation.objects.filter(DonationType=type).order_by('PaymentRecieved', 'DropOffTime')
-
+                    parLength = len(allParticipants)
                 elif type == "2":
                     allParticipants = Participation.objects.filter(DonationType=type)
-
+                    parLength = len(allParticipants)
                 elif type == "4":
                     allParticipants = Participation.objects.filter(DonationType=type).order_by('PaymentRecieved', 'DropOffTime')
-
+                    parLength = len(allParticipants)
                 else:
                     allParticipants = Participation.objects.filter(DonationType=type)
+                    parLength = len(allParticipants)
             else:
                 allParticipants = Participation.objects.all()
+                parLength = len(allParticipants)
 
         if fullname is not None:
             donorsqueryset = list(Donor.objects.filter(FullName__icontains=fullname).values_list('DonorID', flat=True))

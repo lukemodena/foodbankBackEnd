@@ -445,12 +445,13 @@ class ParticipantListApi(generics.ListAPIView):
         fullname = self.request.query_params.get('fullname')
         page = self.request.query_params.get('page')
         per_page = self.request.query_params.get('per_page')
+        parTotalLength = len(Participation.objects.filter(CollectionID=collId))
         
         if page == "coll":
-            parLength = len(Participation.objects.filter(CollectionID=collId))
+            
             payload = {
                 "page": {
-                    "parTotalLength": parLength,
+                    "parTotalLength": parTotalLength,
                 }
             }
             
@@ -507,6 +508,7 @@ class ParticipantListApi(generics.ListAPIView):
                 "has_previous": participantsPaginated.has_previous(),
                 "total_number": paginatorPre.num_pages,
                 "parLength": parLength,
+                "parTotalLength": parTotalLength,
             },
             "data": serializedParticipant.data
         }

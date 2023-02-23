@@ -444,6 +444,7 @@ class ParticipantListApi(generics.ListAPIView):
         collId = self.request.query_params.get('collid')
         fullname = self.request.query_params.get('fullname')
         page = self.request.query_params.get('page')
+        per_page = self.request.query_params.get('per_page')
         
         if page == "coll":
             parLength = len(Participation.objects.filter(CollectionID=collId))
@@ -492,7 +493,7 @@ class ParticipantListApi(generics.ListAPIView):
             donorsqueryset = list(Donor.objects.filter(FullName__icontains=fullname).values_list('DonorID', flat=True))
             allParticipants = allParticipants.filter(DonorID__in=donorsqueryset)
 
-        paginatorPre = Paginator(allParticipants, per_page=10)
+        paginatorPre = Paginator(allParticipants, per_page=int(per_page)
         participantsPaginated = paginatorPre.get_page(int(page))
 
         serializedParticipant = ParticipationListSerializer(participantsPaginated, many=True)
@@ -540,19 +541,6 @@ class PhotoAPI(generics.ListAPIView):
         default_storage.delete(fileName)
         file_response="{} deleted successfully".format(fileName)
         return JsonResponse(file_response, safe=False)
-
-
-class PhotoDownloadAPI(generics.ListAPIView):
-    permission_classes = [IsAuthenticated]
-
-    def download(request, path):
-        file_path = os.path.join(settings.MEDIA_ROOT, path)
-        if os.path.exists(file_path):
-            with open(file_path, 'rb') as fh:
-                response = HttpResponse(fh.read(), content_type="application/vnd.ms-excel")
-                response['Content-Disposition'] = 'inline; filename=' + os.path.basename(file_path)
-                return response
-        raise Http404
 
 class SpreadsheetAPI(generics.ListAPIView):
     permission_classes = [IsAuthenticated]

@@ -444,8 +444,17 @@ class ParticipantListApi(generics.ListAPIView):
         collId = self.request.query_params.get('collid')
         fullname = self.request.query_params.get('fullname')
         page = self.request.query_params.get('page')
+        
+        if page == "coll":
+            parLength = len(Participation.objects.filter(CollectionID=collId))
+            payload = {
+                "parLength": parLength,
+            }
+            
+            return JsonResponse(payload, safe=False)
 
         if collId is not None:
+            parLength = len(Participation.objects.filter(CollectionID=collId))
             if type is not None:
                 if type == "1":
                     allParticipants = Participation.objects.filter(CollectionID=collId, DonationType=type).order_by('PaymentRecieved', 'DropOffTime')
@@ -461,7 +470,7 @@ class ParticipantListApi(generics.ListAPIView):
             else:
                 allParticipants = Participation.objects.filter(CollectionID=collId)
         else:
-
+            parLength = len(Participation.objects.all())
             if type is not None:
                 if type == "1":
                     allParticipants = Participation.objects.filter(DonationType=type).order_by('PaymentRecieved', 'DropOffTime')
@@ -492,6 +501,7 @@ class ParticipantListApi(generics.ListAPIView):
                 "has_next":participantsPaginated.has_next(),
                 "has_previous": participantsPaginated.has_previous(),
                 "total_number": paginatorPre.num_pages,
+                "parLength": parLength,
             },
             "data": serializedParticipant.data
         }

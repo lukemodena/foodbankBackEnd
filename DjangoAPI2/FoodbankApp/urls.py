@@ -29,7 +29,7 @@ urlpatterns=[
     re_path(r'^collectionstatus/(?P<status>.+)/$', collectionApiStatus.as_view()),
 
     re_path(r'^searchcollections$', collectionApiFliter.as_view()),
-    re_path(r'^searchcollections/(?P<page>.+)&(?P<status>.+)&(?P<startdate>.+)&(?P<enddate>.+)&(?P<type>.+)/$', collectionApiFliter.as_view()),
+    re_path(r'^searchcollections/(?P<page>.+)&(?P<per_page>.+)&(?P<status>.+)&(?P<startdate>.+)&(?P<enddate>.+)&(?P<type>.+)/$', collectionApiFliter.as_view()),
 
     re_path(r'^collection/(?P<date>.+)/$', CollectionApi.as_view()),
     re_path(r'^collection$', CollectionApi.as_view()),

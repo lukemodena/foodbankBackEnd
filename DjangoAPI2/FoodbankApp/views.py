@@ -1,21 +1,25 @@
-
 from rest_framework.parsers import JSONParser
 from rest_framework import generics, filters
 from django.http.response import JsonResponse
 
-from django.http import HttpResponse, Http404
 
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 from django.db.models import Sum
-import os
 
-from FoodbankApp.models import Donor, Collection, Wholesale, Participation
-from FoodbankApp.serializers import DonorSerializer, CollectionSerializer, WholesaleSerializer, ParticipationSerializer, ParticipationListSerializer
+from FoodbankApp.models import Donor, Collection, CollectionNotes, Wholesale, Participation
+from FoodbankApp.serializers import DonorSerializer, CollectionSerializer, CollectionNotesSerializer, WholesaleSerializer, ParticipationSerializer, ParticipationListSerializer
 
 from django.core.files.storage import default_storage
 
 # Create your views here.
+
+################################################################################
+
+                            ##### DONORS #####
+
+################################################################################
+
 
 class donorApiFliter(generics.ListAPIView):
 
@@ -33,12 +37,15 @@ class donorApiFliter(generics.ListAPIView):
         total3Month = len(donors.exclude(DonorType__icontains="0"))
         totalMonthly = len(donors.filter(DonorType__icontains="1"))
         totalOther = len(donors.filter(DonorType__icontains="0"))
+        totalVolunteer = len(donors.filter(Volunteer=True))
 
         if page == "all":
 
             if type is not None:
                 if type == "3":
                     donors = donors.exclude(DonorType__icontains="0")
+                elif type == "volunteer":
+                    donors = donors.filter(Volunteer=True)
                 else:
                     donors = donors.filter(DonorType__icontains=type)
 
@@ -60,6 +67,8 @@ class donorApiFliter(generics.ListAPIView):
             if type is not None:
                 if type == "3":
                     donors = donors.exclude(DonorType__icontains="0")
+                elif type == "volunteer":
+                    donors = donors.filter(Volunteer=True)
                 else:
                     donors = donors.filter(DonorType__icontains=type)
 
@@ -83,7 +92,8 @@ class donorApiFliter(generics.ListAPIView):
                     "TotalContacts": len(donors),
                     "3Month": total3Month,
                     "Monthly": totalMonthly,
-                    "Other": totalOther
+                    "Other": totalOther,
+                    "Volunteer": totalVolunteer,
                 },
                 "data": serializedDonors.data
             }
@@ -92,11 +102,6 @@ class donorApiFliter(generics.ListAPIView):
 
 class DonorApi(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        donors = Donor.objects.all().order_by('FirstName')
-        donor_serializer = DonorSerializer(donors, many=True)
-        return JsonResponse(donor_serializer.data, safe=False)
 
     def post(self, request):
         donor_data=JSONParser().parse(request)
@@ -130,6 +135,13 @@ class DonorApi(generics.ListAPIView):
         donor=Donor.objects.get(DonorID=id)
         donor.delete()
         return JsonResponse("Contact deleted successfully!", safe=False)
+
+
+################################################################################
+
+                            #### COLLECTIONS ####
+
+################################################################################
 
 class collectionApiFliter(generics.ListAPIView):
 
@@ -293,11 +305,6 @@ class collectionApiStatus(generics.ListAPIView):
 class CollectionApi(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self):
-        collections = Collection.objects.all().order_by('-CollectionDate')
-        collections_serializer = CollectionSerializer(collections, many=True)
-        return JsonResponse(collections_serializer.data, safe=False)
-
     def post(self, request):
         collection_data=JSONParser().parse(request)
         collections_serializer = CollectionSerializer(data=collection_data)
@@ -319,6 +326,68 @@ class CollectionApi(generics.ListAPIView):
         collection=Collection.objects.get(CollectionID=id)
         collection.delete()
         return JsonResponse("Donor deleted successfully!", safe=False)
+
+
+
+################################################################################
+
+                        ##### COLLECTION NOTES #####
+
+################################################################################
+
+class CollectionNotesAPI(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+
+    def get(self, request):
+        collectionID = self.request.query_params.get('collid')
+        page = int(self.request.query_params.get('page'))
+        collectionNotes = CollectionNotes.objects.filter(CollectionID=collectionID).order_by('Completed')
+
+        paginatorPre = Paginator(collectionNotes, per_page=15)
+        collectionNotesPaginated = paginatorPre.get_page(page)
+
+        serializedCollectionNotes = CollectionNotesSerializer(collectionNotesPaginated, many=True)
+
+        payload = {
+            "page": {
+                "current": collectionNotesPaginated.number,
+                "has_next":collectionNotesPaginated.has_next(),
+                "has_previous": collectionNotesPaginated.has_previous(),
+                "total_number": paginatorPre.num_pages,
+            },
+            "data": serializedCollectionNotes.data
+        }
+
+        return JsonResponse(payload, safe=False)
+
+    def post(self, request):
+        collectionNote_data=JSONParser().parse(request)
+        serializedCollectionNote = CollectionNotesSerializer(data=collectionNote_data)
+        if serializedCollectionNote.is_valid():
+            serializedCollectionNote.save()
+            return JsonResponse("New collection note has been added Successfully!" , safe=False)
+        return JsonResponse("Note creation was unsuccessful",safe=False)
+
+    def put(self, request):
+        collectionNote_data = JSONParser().parse(request)
+        collectionNote = CollectionNotes.objects.get(NoteID=collectionNote_data['NoteID'])
+        serializedCollectionNote = CollectionNotesSerializer(collectionNote,data=collectionNote_data)
+        if serializedCollectionNote.is_valid():
+            serializedCollectionNote.save()
+            return JsonResponse("Collection note updated successfully!", safe=False)
+        return JsonResponse("Failed to update note", safe=False)
+
+    def delete(self, request, id=0):
+        collectionNote=CollectionNotes.objects.get(NoteID=id)
+        collectionNote.delete()
+        return JsonResponse("Collection note deleted successfully!", safe=False)
+
+################################################################################
+
+                            #### WHOLESALES ####
+
+################################################################################
 
 class wholesaleApiFliter(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
@@ -369,6 +438,12 @@ class WholesaleApi(generics.ListAPIView):
         wholesale.delete()
         return JsonResponse("Wholesale deleted successfully!", safe=False)
 
+################################################################################
+
+                            #### PARTICIPANTS ####
+
+################################################################################
+
 class participantApiFliter(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Participation.objects.all()
@@ -405,13 +480,6 @@ class participantApiFliter(generics.ListAPIView):
 class ParticipantAPI(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self):
-        participants = Participation.objects.all
-        collId = self.request.query_params.get('collid')
-        if collId is not None:
-            participants = participants.filter(CollectionID=collId)
-        return participants
-
     def post(self, request):
         participant_data=JSONParser().parse(request)
         participant_serializer = ParticipationSerializer(data=participant_data)
@@ -444,20 +512,30 @@ class ParticipantListApi(generics.ListAPIView):
         collId = self.request.query_params.get('collid')
         fullname = self.request.query_params.get('fullname')
         page = self.request.query_params.get('page')
-        per_page = self.request.query_params.get('per_page')
-        parTotalLength = len(Participation.objects.filter(CollectionID=collId))
-        
+        per_page = int(self.request.query_params.get('per_page'))
+
         if page == "coll":
-            
+            parTotalLength = len(Participation.objects.filter(CollectionID=collId))
             payload = {
                 "page": {
                     "parTotalLength": parTotalLength,
                 }
             }
-            
+
             return JsonResponse(payload, safe=False)
 
+
         if collId is not None:
+
+            ## Get list of participants for Route Planning
+            collParticipants = Participation.objects.filter(CollectionID=collId, DonationType='2')
+
+            collParticipantsSerialized = ParticipationListSerializer(collParticipants, many=True)
+
+            ## Total no. of participants
+            parTotalLength = len(Participation.objects.filter(CollectionID=collId))
+
+            ## Run query
             if type is not None:
                 if type == "1":
                     allParticipants = Participation.objects.filter(CollectionID=collId, DonationType=type).order_by('PaymentRecieved', 'DropOffTime')
@@ -475,6 +553,10 @@ class ParticipantListApi(generics.ListAPIView):
                 allParticipants = Participation.objects.filter(CollectionID=collId)
                 parLength = len(allParticipants)
         else:
+            collParticipantsSerialized = None
+
+            parTotalLength = len(Participation.objects.all)
+
             if type is not None:
                 if type == "1":
                     allParticipants = Participation.objects.filter(DonationType=type).order_by('PaymentRecieved', 'DropOffTime')
@@ -496,7 +578,7 @@ class ParticipantListApi(generics.ListAPIView):
             donorsqueryset = list(Donor.objects.filter(FullName__icontains=fullname).values_list('DonorID', flat=True))
             allParticipants = allParticipants.filter(DonorID__in=donorsqueryset)
 
-        paginatorPre = Paginator(allParticipants, per_page=int(per_page)
+        paginatorPre = Paginator(allParticipants, per_page=per_page)
         participantsPaginated = paginatorPre.get_page(int(page))
 
         serializedParticipant = ParticipationListSerializer(participantsPaginated, many=True)
@@ -510,10 +592,19 @@ class ParticipantListApi(generics.ListAPIView):
                 "parLength": parLength,
                 "parTotalLength": parTotalLength,
             },
-            "data": serializedParticipant.data
+            "data": serializedParticipant.data,
+            "routeData": collParticipantsSerialized.data
         }
 
         return JsonResponse(payload, safe=False)
+
+
+################################################################################
+
+                        ##### COLLECTION PHOTO #####
+
+################################################################################
+
 
 class PhotoAPI(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
@@ -545,6 +636,13 @@ class PhotoAPI(generics.ListAPIView):
         default_storage.delete(fileName)
         file_response="{} deleted successfully".format(fileName)
         return JsonResponse(file_response, safe=False)
+
+################################################################################
+
+                        #### COLLECTION SPREADSHEET ####
+
+################################################################################
+
 
 class SpreadsheetAPI(generics.ListAPIView):
     permission_classes = [IsAuthenticated]

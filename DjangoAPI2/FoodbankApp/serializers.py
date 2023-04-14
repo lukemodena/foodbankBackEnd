@@ -47,6 +47,7 @@ class ParticipationSerializer(serializers.ModelSerializer):
         model = Participation
         fields = ('ParticipationID',
                   'PaymentRecieved',
+                  'DateRecieved',
                   'DonationType',
                   'TotalDonated',
                   'DropOffTime',
@@ -63,6 +64,7 @@ class ParticipationListSerializer(serializers.ModelSerializer):
         model = Participation
         fields = ('ParticipationID',
                   'PaymentRecieved',
+                  'DateRecieved',
                   'DonationType',
                   'TotalDonated',
                   'DropOffTime',

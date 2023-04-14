@@ -45,6 +45,7 @@ class Wholesale(models.Model):
 class Participation(models.Model):
     ParticipationID = models.AutoField(primary_key=True)
     PaymentRecieved = models.BooleanField(default=False)
+    DateRecieved = models.DateField(blank=True, null=True) 
     DonationType = models.CharField(default="0", max_length=100)
     TotalDonated = models.DecimalField(default=0, max_digits=6, decimal_places=2)
     DropOffTime = models.CharField(default="N/A", max_length=100)

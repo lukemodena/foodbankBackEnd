@@ -1,7 +1,7 @@
 from rest_framework.parsers import JSONParser
 from rest_framework import generics, filters
 from django.http.response import JsonResponse
-
+from datetime import date
 
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
@@ -479,23 +479,88 @@ class participantApiFliter(generics.ListAPIView):
 
 class ParticipantAPI(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
 
     def post(self, request):
-        participant_data=JSONParser().parse(request)
+        if request.data['DonationType'] == "3" and request.data['PaymentRecieved'] == "true":
+            request.data['DateRecieved'] = date.today()
+            participant_data = request.data
+            info = "Cash Donation has been recieved"
+        else:
+            participant_data = request.data
+            info = "Cash Donation has not been recieved or it is not applicable"
+
         participant_serializer = ParticipationSerializer(data=participant_data)
         if participant_serializer.is_valid():
             participant_serializer.save()
-            return JsonResponse("New collection participant has been added Successfully!" , safe=False)
-        return JsonResponse("Collection participant creation unsuccessful",safe=False)
+            payload = {
+                "result": "New collection participant has been added Successfully!",
+                "inputData": participant_data,
+                "info": info
+            }
+            return JsonResponse(payload, safe=False)
+
+        payload = {
+            "result": "Collection participant creation unsuccessful",
+            "inputData": participant_data,
+            "info": info
+        }
+        return JsonResponse(payload, safe=False)
 
     def put(self, request):
-        participant_data = JSONParser().parse(request)
+
+        if request.data['DonationType'] == "3":
+            participant_data = request.data
+
+            originalParticipant = Participation.objects.get(ParticipationID=participant_data['ParticipationID'])
+            originalParticipantSerialized = ParticipationSerializer(originalParticipant).data
+
+            if originalParticipantSerialized['DateRecieved'] != None and participant_data['PaymentRecieved'] == "true":
+
+                participant_data['DateRecieved'] = originalParticipantSerialized['DateRecieved']
+                info = "Cash Donation, date recieved exists"
+
+            elif originalParticipantSerialized['DateRecieved'] == None and participant_data['PaymentRecieved'] == "true":
+
+                participant_data['DateRecieved'] = date.today()
+                info = "Cash Donation, date recieved does not yet exist, has been added"
+
+            elif originalParticipantSerialized['PaymentRecieved'] == True and participant_data['PaymentRecieved'] == "false":
+
+                participant_data['DateRecieved'] = None
+                info = "Cash Donation, cash recieved changed from 'True' to 'False'"
+
+            else:
+
+                participant_data['DateRecieved'] = None
+                info = "Cash Donation not yet recieved"
+
+        else:
+
+            participant_data = request.data
+            info = "Not Cash Donation"
+
         participant = Participation.objects.get(ParticipationID=participant_data['ParticipationID'])
+
         participant_serializer = ParticipationSerializer(participant,data=participant_data)
         if participant_serializer.is_valid():
             participant_serializer.save()
-            return JsonResponse("Collection participant updated successfully!", safe=False)
-        return JsonResponse("Failed to update collection participant", safe=False)
+
+            payload = {
+                "result": "Collection participant updated successfully!",
+                "inputData": participant_data,
+                "info": info
+            }
+
+            return JsonResponse(payload, safe=False)
+
+        payload = {
+            "result": "Failed to update collection participant",
+            "inputData": participant_data,
+            "info": info
+        }
+
+        return JsonResponse(payload, safe=False)
 
     def delete(self, request, id=0):
         participant=Participation.objects.get(ParticipationID=id)
@@ -533,7 +598,49 @@ class ParticipantListApi(generics.ListAPIView):
             collParticipantsSerialized = ParticipationListSerializer(collParticipants, many=True)
 
             ## Total no. of participants
-            parTotalLength = len(Participation.objects.filter(CollectionID=collId))
+            parTotal = Participation.objects.filter(CollectionID=collId)
+            parTotalLength = len(parTotal)
+            parTotalRecieved = parTotal.filter(PaymentRecieved=True)
+            parTotalRecievedLength = len(parTotalRecieved)
+            parTotalRemain = parTotal.filter(PaymentRecieved=False)
+            parTotalRemainLength = len(parTotalRemain)
+            ## Drop-Off Stats
+            parTotalDropOff = parTotal.filter(DonationType="1")
+            parTotalDropOffLength = len(parTotalDropOff)
+            parTotalDropOffRecieved = len(parTotalDropOff.filter(PaymentRecieved=True))
+            ## Collection Stats
+            parTotalCollection = parTotal.filter(DonationType="2")
+            parTotalCollectionLength = len(parTotalCollection)
+            parTotalCollectionRecieved = len(parTotalCollection.filter(PaymentRecieved=True))
+            ## Online Orders Stats
+            parTotalOnlineOrder = parTotal.filter(DonationType="4")
+            parTotalOnlineOrderLength = len(parTotalOnlineOrder)
+            parTotalOnlineOrderRecieved = len(parTotalOnlineOrder.filter(PaymentRecieved=True))
+            ## Cash Donations Stats
+            parTotalCashDonation = parTotal.filter(DonationType="3")
+            parTotalCashDonationLength = len(parTotalCashDonation)
+            parTotalCashDonationRecieved = len(parTotalCashDonation.filter(PaymentRecieved=True))
+
+            moneyTotal = parTotal.aggregate(Sum('TotalDonated'))
+            moneyRecieved = parTotalRecieved.aggregate(Sum('TotalDonated'))
+            moneyRemain = parTotalRemain.aggregate(Sum('TotalDonated'))
+
+            stats = {
+                "total": parTotalLength,
+                "total_drop_off": parTotalDropOffLength,
+                "recieved_drop_off": parTotalDropOffRecieved,
+                "total_collection": parTotalCollectionLength,
+                "recieved_collection": parTotalCollectionRecieved,
+                "total_cash_donation": parTotalCashDonationLength,
+                "recieved_cash_donation": parTotalCashDonationRecieved,
+                "total_online_order": parTotalOnlineOrderLength,
+                "recieved_online_order": parTotalOnlineOrderRecieved,
+                "total_recieved": parTotalRecievedLength,
+                "total_remain": parTotalRemainLength,
+                "cash_donation_total": moneyTotal,
+                "cash_donation_recieved": moneyRecieved,
+                "cash_donation_remain": moneyRemain
+            }
 
             ## Run query
             if type is not None:
@@ -556,6 +663,14 @@ class ParticipantListApi(generics.ListAPIView):
             collParticipantsSerialized = None
 
             parTotalLength = len(Participation.objects.all)
+
+            stats = {
+                "total_recieved": 0,
+                "total_remain": 0,
+                "cash_donation_total": None,
+                "cash_donation_recieved": None,
+                "cash_donation_remain": None
+            }
 
             if type is not None:
                 if type == "1":
@@ -593,10 +708,12 @@ class ParticipantListApi(generics.ListAPIView):
                 "parTotalLength": parTotalLength,
             },
             "data": serializedParticipant.data,
+            "stats": stats,
             "routeData": collParticipantsSerialized.data
         }
 
         return JsonResponse(payload, safe=False)
+
 
 
 ################################################################################
